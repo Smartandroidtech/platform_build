@@ -28,9 +28,6 @@ TARGET_ARCH_VARIANT := mips32r2-fp
 endif
 TARGET_CPU_ABI  := mips
 
-# Make TARGET_CPU_VARIANT the same as TARGET_ARCH_VARIANT
-TARGET_CPU_VARIANT := $(TARGET_ARCH_VARIANT)
-
 HAVE_HTC_AUDIO_DRIVER := true
 BOARD_USES_GENERIC_AUDIO := true
 
@@ -67,11 +64,6 @@ BOARD_SEPOLICY_UNION += \
         domain.te \
         file.te \
         file_contexts \
-        goldfish_setup.te \
-        goldfish_logcat.te \
-        property.te \
-        property_contexts \
-        qemu_props.te \
         qemud.te \
         rild.te \
         shell.te \

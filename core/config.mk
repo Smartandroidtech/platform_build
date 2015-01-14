@@ -69,8 +69,10 @@ CLEAR_VARS:= $(BUILD_SYSTEM)/clear_vars.mk
 BUILD_HOST_STATIC_LIBRARY:= $(BUILD_SYSTEM)/host_static_library.mk
 BUILD_HOST_SHARED_LIBRARY:= $(BUILD_SYSTEM)/host_shared_library.mk
 BUILD_STATIC_LIBRARY:= $(BUILD_SYSTEM)/static_library.mk
+BUILD_RAW_STATIC_LIBRARY := $(BUILD_SYSTEM)/raw_static_library.mk
 BUILD_SHARED_LIBRARY:= $(BUILD_SYSTEM)/shared_library.mk
 BUILD_EXECUTABLE:= $(BUILD_SYSTEM)/executable.mk
+BUILD_RAW_EXECUTABLE:= $(BUILD_SYSTEM)/raw_executable.mk
 BUILD_HOST_EXECUTABLE:= $(BUILD_SYSTEM)/host_executable.mk
 BUILD_PACKAGE:= $(BUILD_SYSTEM)/package.mk
 BUILD_PHONY_PACKAGE:= $(BUILD_SYSTEM)/phony_package.mk
@@ -115,7 +117,7 @@ SHOW_COMMANDS:= $(filter showcommands,$(MAKECMDGOALS))
 COMMON_GLOBAL_CFLAGS:= -DANDROID -fmessage-length=0 -W -Wall -Wno-unused -Winit-self -Wpointer-arith
 COMMON_RELEASE_CFLAGS:= -DNDEBUG -UDEBUG
 
-COMMON_GLOBAL_CPPFLAGS:= $(COMMON_GLOBAL_CFLAGS) -Wsign-promo -std=gnu++11
+COMMON_GLOBAL_CPPFLAGS:= $(COMMON_GLOBAL_CFLAGS) -Wsign-promo
 COMMON_RELEASE_CPPFLAGS:= $(COMMON_RELEASE_CFLAGS)
 
 # Set the extensions used for various packages
@@ -435,7 +437,17 @@ else
 COLUMN:= column
 endif
 
+ifeq ($(HOST_OS),darwin)
+ifeq ($(LEGACY_USE_JAVA6),)
 HOST_JDK_TOOLS_JAR:= $(shell $(BUILD_SYSTEM)/find-jdk-tools-jar.sh)
+else
+# Deliberately set to blank for Java 6 installations on MacOS. These
+# versions allegedly use a non-standard directory structure.
+HOST_JDK_TOOLS_JAR :=
+endif
+else
+HOST_JDK_TOOLS_JAR:= $(shell $(BUILD_SYSTEM)/find-jdk-tools-jar.sh)
+endif
 
 ifneq ($(HOST_JDK_TOOLS_JAR),)
 ifeq ($(wildcard $(HOST_JDK_TOOLS_JAR)),)
@@ -533,15 +545,23 @@ ifeq ($(TARGET_DEFAULT_JAVA_LIBRARIES),)
   TARGET_DEFAULT_JAVA_LIBRARIES := core-libart core-junit ext framework
 endif
 
+TARGET_CPU_SMP ?= true
+
 # Flags for DEX2OAT
 DEX2OAT_TARGET_ARCH := $(TARGET_ARCH)
 DEX2OAT_TARGET_CPU_VARIANT := $(TARGET_CPU_VARIANT)
 DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES := default
+ifneq (,$(filter $(DEX2OAT_TARGET_CPU_VARIANT),cortex-a7 cortex-a15 krait denver))
+  DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES := div
+endif
 
 ifdef TARGET_2ND_ARCH
 $(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_ARCH := $(TARGET_2ND_ARCH)
 $(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_CPU_VARIANT := $(TARGET_2ND_CPU_VARIANT)
 $(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES := default
+ifneq (,$(filter $($(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_CPU_VARIANT),cortex-a7 cortex-a15 krait denver))
+  $(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES := div
+endif
 endif
 
 # define clang/llvm tools and global flags
@@ -595,8 +615,5 @@ endif
 RS_PREBUILT_CLCORE := prebuilts/sdk/renderscript/lib/$(TARGET_ARCH)/librsrt_$(TARGET_ARCH).bc
 RS_PREBUILT_LIBPATH := -L prebuilts/ndk/8/platforms/android-9/arch-$(TARGET_ARCH)/usr/lib
 RS_PREBUILT_COMPILER_RT := prebuilts/sdk/renderscript/lib/$(TARGET_ARCH)/libcompiler_rt.a
-
-# API Level lists for Renderscript Compat lib.
-RSCOMPAT_32BIT_ONLY_API_LEVELS := 8 9 10 11 12 13 14 15 16 17 18 19 20
 
 include $(BUILD_SYSTEM)/dumpvar.mk

@@ -356,7 +356,7 @@ time_t ZipEntry::getModWhen(void) const
  */
 void ZipEntry::setModWhen(time_t when)
 {
-#if !defined(_WIN32)
+#ifdef HAVE_LOCALTIME_R
     struct tm tmResult;
 #endif
     time_t even;
@@ -368,7 +368,7 @@ void ZipEntry::setModWhen(time_t when)
     even = (time_t)(((unsigned long)(when) + 1) & (~1));
 
     /* expand */
-#if !defined(_WIN32)
+#ifdef HAVE_LOCALTIME_R
     ptm = localtime_r(&even, &tmResult);
 #else
     ptm = localtime(&even);

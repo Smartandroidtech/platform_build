@@ -248,6 +248,36 @@ all_product_configs :=
 
 
 #############################################################################
+# TODO: Remove this hack once only 1 runtime is left.
+# Include the runtime product makefile based on the product's PRODUCT_RUNTIMES
+$(call clear-var-list, $(_product_var_list))
+
+# Set PRODUCT_RUNTIMES, allowing buildspec to override using OVERRIDE_RUNTIMES
+product_runtimes := $(sort $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_RUNTIMES))
+ifneq ($(OVERRIDE_RUNTIMES),)
+  $(info Overriding PRODUCT_RUNTIMES=$(product_runtimes) with $(OVERRIDE_RUNTIMES))
+  product_runtimes := $(OVERRIDE_RUNTIMES)
+endif
+$(foreach runtime, $(product_runtimes), $(eval include $(SRC_TARGET_DIR)/product/$(runtime).mk))
+$(foreach v, $(_product_var_list), $(if $($(v)),\
+    $(eval PRODUCTS.$(INTERNAL_PRODUCT).$(v) += $(sort $($(v))))))
+
+$(call clear-var-list, $(_product_var_list))
+# Now we can assign to PRODUCT_RUNTIMES
+PRODUCT_RUNTIMES := $(product_runtimes)
+product_runtimes :=
+
+PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_PROPERTY_OVERRIDES += persist.sys.dalvik.vm.lib.2=$(DALVIK_VM_LIB)
+
+ifeq ($(words $(PRODUCT_RUNTIMES)),1)
+  # If we only have one runtime, we can strip classes.dex by default during dex_preopt
+  DEX_PREOPT_DEFAULT := true
+else
+  # If we have more than one, we leave the classes.dex alone for post-boot analysis
+  DEX_PREOPT_DEFAULT := nostripping
+endif
+
+#############################################################################
 
 # A list of module names of BOOTCLASSPATH (jar files)
 PRODUCT_BOOT_JARS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_BOOT_JARS))
@@ -354,12 +384,18 @@ PRODUCT_PROPERTY_OVERRIDES := \
 # used for adding properties to default.prop
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEFAULT_PROPERTY_OVERRIDES))
+    
+PRODUCT_BUILD_PROP_OVERRIDES := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_BUILD_PROP_OVERRIDES))
 
 # Should we use the default resources or add any product specific overlays
 PRODUCT_PACKAGE_OVERLAYS := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_PACKAGE_OVERLAYS))
 DEVICE_PACKAGE_OVERLAYS := \
         $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).DEVICE_PACKAGE_OVERLAYS))
+
+# An list of whitespace-separated words.
+PRODUCT_TAGS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_TAGS))
 
 # The list of product-specific kernel header dirs
 PRODUCT_VENDOR_KERNEL_HEADERS := \
@@ -380,20 +416,6 @@ PRODUCT_OTA_PUBLIC_KEYS := $(sort \
 PRODUCT_EXTRA_RECOVERY_KEYS := $(sort \
     $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_EXTRA_RECOVERY_KEYS))
 
-PRODUCT_DEX_PREOPT_DEFAULT_FLAGS := \
-    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_DEFAULT_FLAGS))
-PRODUCT_DEX_PREOPT_BOOT_FLAGS := \
-    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_BOOT_FLAGS))
-# Resolve and setup per-module dex-preopot configs.
-PRODUCT_DEX_PREOPT_MODULE_CONFIGS := \
-    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_MODULE_CONFIGS))
-# If a module has multiple setups, the first takes precedence.
-_pdpmc_modules :=
-$(foreach c,$(PRODUCT_DEX_PREOPT_MODULE_CONFIGS),\
-  $(eval m := $(firstword $(subst =,$(space),$(c))))\
-  $(if $(filter $(_pdpmc_modules),$(m)),,\
-    $(eval _pdpmc_modules += $(m))\
-    $(eval cf := $(patsubst $(m)=%,%,$(c)))\
-    $(eval cf := $(subst $(_PDPMC_SP_PLACE_HOLDER),$(space),$(cf)))\
-    $(eval DEXPREOPT.$(TARGET_PRODUCT).$(m).CONFIG := $(cf))))
-_pdpmc_modules :=
+# If there is no room in /system for the image, place it in /data
+PRODUCT_DEX_PREOPT_IMAGE_IN_DATA := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_IMAGE_IN_DATA))

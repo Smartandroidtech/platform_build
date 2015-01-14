@@ -42,24 +42,12 @@ endif
 proto_sources := $(filter %.proto,$(LOCAL_SRC_FILES))
 ifneq ($(proto_sources),)
 ifeq ($(LOCAL_PROTOC_OPTIMIZE_TYPE),micro)
-    ifneq ($(filter libprotobuf-java-2.3.0-micro,$(LOCAL_STATIC_JAVA_LIBRARIES)),)
-        $(warning Stripping unneeded dependency on libprotobuf-java-2.3.0-micro in $(LOCAL_MODULE))
-        LOCAL_STATIC_JAVA_LIBRARIES := $(filter-out libprotobuf-java-2.3.0-micro,$(LOCAL_STATIC_JAVA_LIBRARIES))
-    endif
-    LOCAL_STATIC_JAVA_LIBRARIES += libprotobuf-java-micro
+    LOCAL_STATIC_JAVA_LIBRARIES += libprotobuf-java-2.3.0-micro
 else
   ifeq ($(LOCAL_PROTOC_OPTIMIZE_TYPE),nano)
-    ifneq ($(filter libprotobuf-java-2.3.0-nano,$(LOCAL_STATIC_JAVA_LIBRARIES)),)
-        $(warning Stripping unneeded dependency on libprotobuf-java-2.3.0-nano in $(LOCAL_MODULE))
-        LOCAL_STATIC_JAVA_LIBRARIES := $(filter-out libprotobuf-java-2.3.0-nano,$(LOCAL_STATIC_JAVA_LIBRARIES))
-    endif
-    LOCAL_STATIC_JAVA_LIBRARIES += libprotobuf-java-nano
+    LOCAL_STATIC_JAVA_LIBRARIES += libprotobuf-java-2.3.0-nano
   else
-    ifneq ($(filter libprotobuf-java-2.3.0-lite,$(LOCAL_STATIC_JAVA_LIBRARIES)),)
-        $(warning Stripping unneeded dependency on libprotobuf-java-2.3.0-lite in $(LOCAL_MODULE))
-        LOCAL_STATIC_JAVA_LIBRARIES := $(filter-out libprotobuf-java-2.3.0-lite,$(LOCAL_STATIC_JAVA_LIBRARIES))
-    endif
-    LOCAL_STATIC_JAVA_LIBRARIES += libprotobuf-java-lite
+    LOCAL_STATIC_JAVA_LIBRARIES += libprotobuf-java-2.3.0-lite
   endif
 endif
 endif
@@ -202,20 +190,8 @@ $(RenderScript_file_stamp): $(renderscript_sources_fullpath) $(LOCAL_RENDERSCRIP
 
 ifneq ($(LOCAL_RENDERSCRIPT_COMPATIBILITY),)
 bc_files := $(patsubst %.fs,%.bc, $(patsubst %.rs,%.bc, $(notdir $(renderscript_sources))))
-
-
-ifeq ($(filter $(RSCOMPAT_32BIT_ONLY_API_LEVELS),$(renderscript_target_api)),)
-ifeq ($(TARGET_IS_64_BIT),true)
-renderscript_intermediate.bc_folder := $(renderscript_intermediate.COMMON)/res/raw/bc64/
-else
-renderscript_intermediate.bc_folder := $(renderscript_intermediate.COMMON)/res/raw/bc32/
-endif
-else
-renderscript_intermediate.bc_folder := $(renderscript_intermediate.COMMON)/res/raw/
-endif
-
 rs_generated_bc := $(addprefix \
-    $(renderscript_intermediate.bc_folder), $(bc_files))
+    $(renderscript_intermediate.COMMON)/res/raw/, $(bc_files))
 
 renderscript_intermediate := $(intermediates)/renderscript
 
@@ -240,7 +216,7 @@ $(rs_compatibility_jni_libs): $(RenderScript_file_stamp) $(RS_PREBUILT_CLCORE) \
 $(rs_compatibility_jni_libs): $(BCC_COMPAT)
 $(rs_compatibility_jni_libs): PRIVATE_CXX := $(TARGET_CXX)
 $(rs_compatibility_jni_libs): $(renderscript_intermediate)/librs.%.so: \
-    $(renderscript_intermediate.bc_folder)%.bc
+    $(renderscript_intermediate.COMMON)/res/raw/%.bc
 	$(transform-bc-to-so)
 
 endif
@@ -337,7 +313,7 @@ ifdef full_classes_jar
 #   PRIVATE_ vars to be preserved.
 $(full_classes_stubs_jar): PRIVATE_SOURCE_FILE := $(full_classes_jar)
 $(full_classes_stubs_jar) : $(LOCAL_BUILT_MODULE) | $(ACP)
-	@echo Copying $(PRIVATE_SOURCE_FILE)
+	@echo -e ${CL_GRN}"Copying"${CL_RST}" $(PRIVATE_SOURCE_FILE)"
 	$(hide) $(ACP) -fp $(PRIVATE_SOURCE_FILE) $@
 ALL_MODULES.$(LOCAL_MODULE).STUBS := $(full_classes_stubs_jar)
 
@@ -361,16 +337,9 @@ $(full_classes_compiled_jar): PRIVATE_JAR_PACKAGES := $(LOCAL_JAR_PACKAGES)
 $(full_classes_compiled_jar): PRIVATE_JAR_EXCLUDE_PACKAGES := $(LOCAL_JAR_EXCLUDE_PACKAGES)
 $(full_classes_compiled_jar): PRIVATE_RMTYPEDEFS := $(LOCAL_RMTYPEDEFS)
 $(full_classes_compiled_jar): PRIVATE_DONT_DELETE_JAR_META_INF := $(LOCAL_DONT_DELETE_JAR_META_INF)
-$(full_classes_compiled_jar): \
-        $(java_sources) \
-        $(java_resource_sources) \
-        $(full_java_lib_deps) \
-        $(jar_manifest_file) \
-        $(layers_file) \
-        $(RenderScript_file_stamp) \
-        $(proto_java_sources_file_stamp) \
-        $(LOCAL_MODULE_MAKEFILE) \
-        $(LOCAL_ADDITIONAL_DEPENDENCIES)
+$(full_classes_compiled_jar): $(java_sources) $(java_resource_sources) $(full_java_lib_deps) \
+        $(jar_manifest_file) $(layers_file) $(RenderScript_file_stamp) \
+        $(proto_java_sources_file_stamp) $(LOCAL_ADDITIONAL_DEPENDENCIES)
 	$(transform-java-to-classes.jar)
 
 $(full_classes_compiled_jar): PRIVATE_JAVAC_DEBUG_FLAGS := -g
@@ -379,11 +348,11 @@ $(full_classes_compiled_jar): PRIVATE_JAVAC_DEBUG_FLAGS := -g
 ifneq ($(strip $(LOCAL_JARJAR_RULES)),)
 $(full_classes_jarjar_jar): PRIVATE_JARJAR_RULES := $(LOCAL_JARJAR_RULES)
 $(full_classes_jarjar_jar): $(full_classes_compiled_jar) $(LOCAL_JARJAR_RULES) | $(JARJAR)
-	@echo JarJar: $@
+	@echo -e ${CL_GRN}"JarJar:"${CL_RST}" $@"
 	$(hide) java -jar $(JARJAR) process $(PRIVATE_JARJAR_RULES) $< $@
 else
 $(full_classes_jarjar_jar): $(full_classes_compiled_jar) | $(ACP)
-	@echo Copying: $@
+	@echo -e ${CL_GRN}"Copying:"${CL_RST}" $@"
 	$(hide) $(ACP) -fp $< $@
 endif
 
@@ -406,13 +375,13 @@ $(full_classes_emma_jar): $(full_classes_jarjar_jar) | $(EMMA_JAR)
 
 else
 $(full_classes_emma_jar): $(full_classes_jarjar_jar) | $(ACP)
-	@echo Copying: $@
+	@echo -e ${CL_GRN}"Copying:"${CL_RST}" $@"
 	$(copy-file-to-target)
 endif
 
 # Keep a copy of the jar just before proguard processing.
 $(full_classes_jar): $(full_classes_emma_jar) | $(ACP)
-	@echo Copying: $@
+	@echo -e ${CL_GRN}"Copying:"${CL_GRN}" $@"
 	$(hide) $(ACP) -fp $< $@
 
 # Run proguard if necessary, otherwise just copy the file.
@@ -511,7 +480,7 @@ endif
 $(built_dex_intermediate): $(full_classes_proguard_jar) $(DX)
 	$(transform-classes.jar-to-dex)
 $(built_dex): $(built_dex_intermediate) | $(ACP)
-	@echo Copying: $@
+	@echo -e ${CL_GRN}"Copying:"${CL_RST}" $@"
 	$(hide) mkdir -p $(dir $@)
 	$(hide) rm -f $(dir $@)/classes*.dex
 	$(hide) $(ACP) -fp $(dir $<)/classes*.dex $(dir $@)

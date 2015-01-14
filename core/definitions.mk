@@ -684,7 +684,7 @@ endef
 # any of those tags.
 # $(1): tag list
 define modules-for-tag-list
-$(sort $(foreach tag,$(1),$(foreach m,$(ALL_MODULE_NAME_TAGS.$(tag)),$(ALL_MODULES.$(m).INSTALLED))))
+$(sort $(foreach tag,$(1),$(ALL_MODULE_TAGS.$(tag))))
 endef
 
 # Same as modules-for-tag-list, but operates on
@@ -884,7 +884,7 @@ $(hide) $(PRIVATE_CXX) -shared -Wl,-soname,$(notdir $@) -nostdlib \
 	-Wl,-rpath,\$$ORIGIN/../lib \
 	$(dir $@)/$(notdir $(<:.bc=.o)) \
 	$(RS_PREBUILT_COMPILER_RT) \
-	-o $@ $(TARGET_GLOBAL_LDFLAGS) -Wl,--hash-style=sysv -L prebuilts/gcc/ \
+	-o $@ $(TARGET_GLOBAL_LDFLAGS) -L prebuilts/gcc/ \
 	-L $(TARGET_OUT_INTERMEDIATE_LIBRARIES) $(RS_PREBUILT_LIBPATH) \
 	-lRSSupport -lm -lc
 endef
@@ -971,7 +971,7 @@ endef
 
 define transform-cpp-to-o
 @mkdir -p $(dir $@)
-@echo "target $(PRIVATE_ARM_MODE) C++: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_GRN}"target $(PRIVATE_ARM_MODE) C++:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(hide) $(PRIVATE_CXX) \
 	$(addprefix -I , $(PRIVATE_C_INCLUDES)) \
 	$(shell cat $(PRIVATE_IMPORT_INCLUDES)) \
@@ -1013,7 +1013,6 @@ $(hide) $(PRIVATE_CC) \
 	-c \
 	$(if $(PRIVATE_NO_DEFAULT_COMPILER_FLAGS),, \
 	    $(PRIVATE_TARGET_GLOBAL_CFLAGS) \
-	    $(PRIVATE_TARGET_GLOBAL_CONLYFLAGS) \
 	    $(PRIVATE_ARM_CFLAGS) \
 	 ) \
 	 $(1) \
@@ -1021,12 +1020,12 @@ $(hide) $(PRIVATE_CC) \
 endef
 
 define transform-c-to-o-no-deps
-@echo "target $(PRIVATE_ARM_MODE) C: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_GRN}"target $(PRIVATE_ARM_MODE) C:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(call transform-c-or-s-to-o-no-deps, $(PRIVATE_CFLAGS) $(PRIVATE_CONLYFLAGS) $(PRIVATE_DEBUG_CFLAGS))
 endef
 
 define transform-s-to-o-no-deps
-@echo "target asm: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_GRN}"target asm:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(call transform-c-or-s-to-o-no-deps, $(PRIVATE_ASFLAGS))
 endef
 
@@ -1057,7 +1056,7 @@ endef
 ###########################################################
 
 define transform-m-to-o-no-deps
-@echo "target ObjC: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_GRN}"target ObjC:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(call transform-c-or-s-to-o-no-deps, $(PRIVATE_CFLAGS) $(PRIVATE_DEBUG_CFLAGS))
 endef
 
@@ -1072,7 +1071,7 @@ endef
 
 define transform-host-cpp-to-o
 @mkdir -p $(dir $@)
-@echo "host C++: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_YLW}"host C++:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(hide) $(PRIVATE_CXX) \
 	$(addprefix -I , $(PRIVATE_C_INCLUDES)) \
 	$(shell cat $(PRIVATE_IMPORT_INCLUDES)) \
@@ -1112,19 +1111,18 @@ $(hide) $(PRIVATE_CC) \
 	-c \
 	$(if $(PRIVATE_NO_DEFAULT_COMPILER_FLAGS),, \
 	    $(PRIVATE_HOST_GLOBAL_CFLAGS) \
-	    $(PRIVATE_HOST_GLOBAL_CONLYFLAGS) \
 	 ) \
 	$(1) \
 	-MD -MF $(patsubst %.o,%.d,$@) -o $@ $<
 endef
 
 define transform-host-c-to-o-no-deps
-@echo "host C: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_YLW}"host C:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(call transform-host-c-or-s-to-o-no-deps, $(PRIVATE_CFLAGS) $(PRIVATE_CONLYFLAGS) $(PRIVATE_DEBUG_CFLAGS))
 endef
 
 define transform-host-s-to-o-no-deps
-@echo "host asm: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_YLW}"host asm:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 $(call transform-host-c-or-s-to-o-no-deps, $(PRIVATE_ASFLAGS))
 endef
 
@@ -1178,41 +1176,22 @@ endef
 
 # $(1): the full path of the source static library.
 define _extract-and-include-single-target-whole-static-lib
-@echo "preparing StaticLib: $(PRIVATE_MODULE) [including $(strip $(1))]"
+@echo -e ${CL_YLW}"preparing StaticLib:"${CL_RST}" $(PRIVATE_MODULE) [including $(1)]"
 $(hide) ldir=$(PRIVATE_INTERMEDIATES_DIR)/WHOLE/$(basename $(notdir $(1)))_objs;\
     rm -rf $$ldir; \
     mkdir -p $$ldir; \
-    cp $(1) $$ldir; \
-    lib_to_include=$$ldir/$(notdir $(1)); \
     filelist=; \
-    subdir=0; \
     for f in `$($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) t $(1)`; do \
-        if [ -e $$ldir/$$f ]; then \
-            mkdir $$ldir/$$subdir; \
-            ext=$$subdir/; \
-            subdir=$$((subdir+1)); \
-            $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) m $$lib_to_include $$f; \
-        else \
-            ext=; \
-        fi; \
-        $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) p $$lib_to_include $$f > $$ldir/$$ext$$f; \
-        filelist="$$filelist $$ldir/$$ext$$f"; \
+        $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) p $(1) $$f > $$ldir/$$f; \
+        filelist="$$filelist $$ldir/$$f"; \
     done ; \
     $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_GLOBAL_ARFLAGS) \
         $(PRIVATE_ARFLAGS) $@ $$filelist
 
 endef
 
-# $(1): the full path of the source static library.
-define extract-and-include-whole-static-libs-first
-$(if $(strip $(1)),
-@echo "preparing StaticLib: $(PRIVATE_MODULE) [including $(strip $(1))]"
-$(hide) cp $(1) $@)
-endef
-
 define extract-and-include-target-whole-static-libs
-$(call extract-and-include-whole-static-libs-first, $(firstword $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)))
-$(foreach lib,$(wordlist 2,999,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)), \
+$(foreach lib,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), \
     $(call _extract-and-include-single-target-whole-static-lib, $(lib)))
 endef
 
@@ -1222,7 +1201,7 @@ define transform-o-to-static-lib
 @mkdir -p $(dir $@)
 @rm -f $@
 $(extract-and-include-target-whole-static-libs)
-@echo "target StaticLib: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_GRN}"target StaticLib:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(call split-long-arguments,$($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) \
     $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_GLOBAL_ARFLAGS) \
     $(PRIVATE_ARFLAGS) $@,$(filter %.o, $^))
@@ -1234,25 +1213,14 @@ endef
 
 # $(1): the full path of the source static library.
 define _extract-and-include-single-host-whole-static-lib
-@echo "preparing StaticLib: $(PRIVATE_MODULE) [including $(strip $(1))]"
+@echo -e ${CL_YLW}"preparing StaticLib:"${CL_RST}" $(PRIVATE_MODULE) [including $(1)]"
 $(hide) ldir=$(PRIVATE_INTERMEDIATES_DIR)/WHOLE/$(basename $(notdir $(1)))_objs;\
     rm -rf $$ldir; \
     mkdir -p $$ldir; \
-    cp $(1) $$ldir; \
-    lib_to_include=$$ldir/$(notdir $(1)); \
     filelist=; \
-    subdir=0; \
     for f in `$($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) t $(1) | \grep '\.o$$'`; do \
-        if [ -e $$ldir/$$f ]; then \
-           mkdir $$ldir/$$subdir; \
-           ext=$$subdir/; \
-           subdir=$$((subdir+1)); \
-           $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) m $$lib_to_include $$f; \
-        else \
-           ext=; \
-        fi; \
-        $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) p $$lib_to_include $$f > $$ldir/$$ext$$f; \
-        filelist="$$filelist $$ldir/$$ext$$f"; \
+        $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) p $(1) $$f > $$ldir/$$f; \
+        filelist="$$filelist $$ldir/$$f"; \
     done ; \
     $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_GLOBAL_ARFLAGS) \
         $(PRIVATE_ARFLAGS) $@ $$filelist
@@ -1260,8 +1228,7 @@ $(hide) ldir=$(PRIVATE_INTERMEDIATES_DIR)/WHOLE/$(basename $(notdir $(1)))_objs;
 endef
 
 define extract-and-include-host-whole-static-libs
-$(call extract-and-include-whole-static-libs-first, $(firstword $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)))
-$(foreach lib,$(wordlist 2,999,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)), \
+$(foreach lib,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), \
     $(call _extract-and-include-single-host-whole-static-lib, $(lib)))
 endef
 
@@ -1271,7 +1238,7 @@ define transform-host-o-to-static-lib
 @mkdir -p $(dir $@)
 @rm -f $@
 $(extract-and-include-host-whole-static-libs)
-@echo "host StaticLib: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_YLW}""host StaticLib:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(call split-long-arguments,$($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) \
     $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_GLOBAL_ARFLAGS) \
     $(PRIVATE_ARFLAGS) $@,$(filter %.o, $^))
@@ -1310,13 +1277,13 @@ endif
 
 define transform-host-o-to-shared-lib
 @mkdir -p $(dir $@)
-@echo "host SharedLib: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_YLW}"host SharedLib:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(transform-host-o-to-shared-lib-inner)
 endef
 
 define transform-host-o-to-package
 @mkdir -p $(dir $@)
-@echo "host Package: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_YLW}"host Package:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(transform-host-o-to-shared-lib-inner)
 endef
 
@@ -1325,13 +1292,26 @@ endef
 ## Commands for running gcc to link a shared library or package
 ###########################################################
 
+#echo >$@.vers "{"; \
+#echo >>$@.vers " global:"; \
+#$(BUILD_SYSTEM)/filter_symbols.sh $(TARGET_NM) "  " ";" $(filter %.o,$^) | sort -u >>$@.vers; \
+#echo >>$@.vers " local:"; \
+#echo >>$@.vers "  *;"; \
+#echo >>$@.vers "};"; \
+
+#	-Wl,--version-script=$@.vers \
+
+# ld just seems to be so finicky with command order that we allow
+# it to be overriden en-masse see combo/linux-arm.make for an example.
+ifneq ($(TARGET_CUSTOM_LD_COMMAND),true)
 define transform-o-to-shared-lib-inner
 $(hide) $(PRIVATE_CXX) \
-	-nostdlib -Wl,-soname,$(notdir $@) \
-	-Wl,--gc-sections \
-	$(if $(filter true,$(PRIVATE_CLANG)),-shared,-Wl,-shared) \
+	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
+	-Wl,-rpath-link=$(PRIVATE_TARGET_OUT_INTERMEDIATE_LIBRARIES) \
+	-Wl,-rpath,\$$ORIGIN/../lib \
+	-Wl,-shared -Wl,-soname,$(notdir $@) \
+	$(PRIVATE_LDFLAGS) \
 	$(PRIVATE_TARGET_GLOBAL_LD_DIRS) \
-	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTBEGIN_SO_O)) \
 	$(PRIVATE_ALL_OBJECTS) \
 	-Wl,--whole-archive \
 	$(call normalize-target-libraries,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)) \
@@ -1339,22 +1319,16 @@ $(hide) $(PRIVATE_CXX) \
 	$(if $(PRIVATE_GROUP_STATIC_LIBRARIES),-Wl$(comma)--start-group) \
 	$(call normalize-target-libraries,$(PRIVATE_ALL_STATIC_LIBRARIES)) \
 	$(if $(PRIVATE_GROUP_STATIC_LIBRARIES),-Wl$(comma)--end-group) \
-	$(if $(TARGET_BUILD_APPS),$(PRIVATE_TARGET_LIBGCC)) \
 	$(call normalize-target-libraries,$(PRIVATE_ALL_SHARED_LIBRARIES)) \
 	-o $@ \
-	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
-	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_TARGET_LIBATOMIC) \
-	$(if $(filter true,$(NATIVE_COVERAGE)),$(PRIVATE_TARGET_LIBGCOV)) \
-	$(PRIVATE_TARGET_LIBGCC) \
-	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTEND_SO_O)) \
 	$(PRIVATE_LDLIBS)
 endef
+endif
 
 define transform-o-to-shared-lib
 @mkdir -p $(dir $@)
-@echo "target SharedLib: $(PRIVATE_MODULE) ($@)"
-$(transform-o-to-shared-lib-inner)
+@echo -e ${CL_GRN}"target SharedLib:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
+$($(PRIVATE_2ND_ARCH_VAR_PREFIX)transform-o-to-shared-lib-inner)
 endef
 
 
@@ -1369,13 +1343,13 @@ endif
 
 define transform-to-stripped
 @mkdir -p $(dir $@)
-@echo "target Strip: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_GRN}"target Strip:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(hide) $(PRIVATE_STRIP) --strip-all $< -o $@ $(TARGET_STRIP_EXTRA)
 endef
 
 define transform-to-stripped-keep-symbols
 @mkdir -p $(dir $@)
-@echo "target Strip (keep symbols): $(PRIVATE_MODULE) ($@)"
+@echo  -e ${CL_GRN}"target Strip (keep symbols):"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(hide) $(PRIVATE_OBJCOPY) \
     `$(PRIVATE_READELF) -S $< | awk '/.debug_/ {print "-R " $$2}' | xargs` \
     $(TARGET_STRIP_KEEP_SYMBOLS_EXTRA) $< $@
@@ -1386,15 +1360,14 @@ endef
 ## Commands for running gcc to link an executable
 ###########################################################
 
+ifneq ($(TARGET_CUSTOM_LD_COMMAND),true)
 define transform-o-to-executable-inner
-$(hide) $(PRIVATE_CXX) -pie \
-	-nostdlib -Bdynamic \
-	-Wl,-dynamic-linker,$($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_LINKER) \
-	-Wl,--gc-sections \
-	-Wl,-z,nocopyreloc \
+$(hide) $(PRIVATE_CXX) \
+	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
 	$(PRIVATE_TARGET_GLOBAL_LD_DIRS) \
 	-Wl,-rpath-link=$(PRIVATE_TARGET_OUT_INTERMEDIATE_LIBRARIES) \
-	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTBEGIN_DYNAMIC_O)) \
+	-Wl,-rpath,\$$ORIGIN/../lib \
+	$(PRIVATE_LDFLAGS) \
 	$(PRIVATE_ALL_OBJECTS) \
 	-Wl,--whole-archive \
 	$(call normalize-target-libraries,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)) \
@@ -1402,60 +1375,35 @@ $(hide) $(PRIVATE_CXX) -pie \
 	$(if $(PRIVATE_GROUP_STATIC_LIBRARIES),-Wl$(comma)--start-group) \
 	$(call normalize-target-libraries,$(PRIVATE_ALL_STATIC_LIBRARIES)) \
 	$(if $(PRIVATE_GROUP_STATIC_LIBRARIES),-Wl$(comma)--end-group) \
-	$(if $(TARGET_BUILD_APPS),$(PRIVATE_TARGET_LIBGCC)) \
 	$(call normalize-target-libraries,$(PRIVATE_ALL_SHARED_LIBRARIES)) \
 	-o $@ \
-	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
-	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_TARGET_LIBATOMIC) \
-	$(if $(filter true,$(NATIVE_COVERAGE)),$(PRIVATE_TARGET_LIBGCOV)) \
-	$(PRIVATE_TARGET_LIBGCC) \
-	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTEND_O)) \
 	$(PRIVATE_LDLIBS)
 endef
+endif
 
 define transform-o-to-executable
 @mkdir -p $(dir $@)
-@echo "target Executable: $(PRIVATE_MODULE) ($@)"
-$(transform-o-to-executable-inner)
+@echo -e ${CL_GRN}"target Executable:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
+$($(PRIVATE_2ND_ARCH_VAR_PREFIX)transform-o-to-executable-inner)
 endef
 
 
 ###########################################################
-## Commands for linking a static executable. In practice,
-## we only use this on arm, so the other platforms don't
-## have transform-o-to-static-executable defined.
+## Commands for running gcc to link a statically linked
+## executable.  In practice, we only use this on arm, so
+## the other platforms don't have the
+## transform-o-to-static-executable defined
 ###########################################################
 
+ifneq ($(TARGET_CUSTOM_LD_COMMAND),true)
 define transform-o-to-static-executable-inner
-$(hide) $(PRIVATE_CXX) \
-	-nostdlib -Bstatic \
-	-Wl,--gc-sections \
-	-o $@ \
-	$(PRIVATE_TARGET_GLOBAL_LD_DIRS) \
-	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTBEGIN_STATIC_O)) \
-	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
-	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_ALL_OBJECTS) \
-	-Wl,--whole-archive \
-	$(call normalize-target-libraries,$(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES)) \
-	-Wl,--no-whole-archive \
-	$(call normalize-target-libraries,$(filter-out %libcompiler_rt.a,$(filter-out %libc_nomalloc.a,$(filter-out %libc.a,$(PRIVATE_ALL_STATIC_LIBRARIES))))) \
-	-Wl,--start-group \
-	$(call normalize-target-libraries,$(filter %libc.a,$(PRIVATE_ALL_STATIC_LIBRARIES))) \
-	$(call normalize-target-libraries,$(filter %libc_nomalloc.a,$(PRIVATE_ALL_STATIC_LIBRARIES))) \
-	$(PRIVATE_TARGET_LIBATOMIC) \
-	$(if $(filter true,$(NATIVE_COVERAGE)),$(PRIVATE_TARGET_LIBGCOV)) \
-	$(call normalize-target-libraries,$(filter %libcompiler_rt.a,$(PRIVATE_ALL_STATIC_LIBRARIES))) \
-	$(PRIVATE_TARGET_LIBGCC) \
-	-Wl,--end-group \
-	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTEND_O))
 endef
+endif
 
 define transform-o-to-static-executable
 @mkdir -p $(dir $@)
-@echo "target StaticExecutable: $(PRIVATE_MODULE) ($@)"
-$(transform-o-to-static-executable-inner)
+@echo -e ${CL_GRN}"target StaticExecutable:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
+$($(PRIVATE_2ND_ARCH_VAR_PREFIX)transform-o-to-static-executable-inner)
 endef
 
 
@@ -1488,6 +1436,7 @@ $(hide) $(PRIVATE_CXX) \
 	$($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_GLOBAL_LD_DIRS) \
 	$(if $(PRIVATE_NO_DEFAULT_COMPILER_FLAGS),, \
 		$(PRIVATE_HOST_GLOBAL_LDFLAGS) \
+		$(HOST_FPIE_FLAGS) \
 	) \
 	$(PRIVATE_LDFLAGS) \
 	-o $@ \
@@ -1497,7 +1446,7 @@ endif
 
 define transform-host-o-to-executable
 @mkdir -p $(dir $@)
-@echo "host Executable: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_YLW}"host Executable:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(transform-host-o-to-executable-inner)
 endef
 
@@ -1638,7 +1587,13 @@ $(hide) if [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq ] ; the
     -extdirs "" -d $(PRIVATE_CLASS_INTERMEDIATES_DIR) \
     $(PRIVATE_JAVACFLAGS) \
     \@$(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq \
-    || ( rm -rf $(PRIVATE_CLASS_INTERMEDIATES_DIR) ; exit 41 ) \
+    2>$(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr \
+    && ( [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr ] && \
+    echo -e ${CL_YLW}"`cat $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr`"${CL_RST} 1>&2; \
+    rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr ) \
+    || ( [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr ] && \
+    echo -e ${CL_RED}"`cat $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr`"${CL_RST} 1>&2; \
+    rm -rf $(PRIVATE_CLASS_INTERMEDIATES_DIR); exit 41 ) \
 fi
 $(if $(PRIVATE_JAVA_LAYERS_FILE), $(hide) build/tools/java-layers.py \
     $(PRIVATE_JAVA_LAYERS_FILE) \@$(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq,)
@@ -1666,7 +1621,7 @@ $(if $(PRIVATE_JAR_MANIFEST), \
 endef
 
 define transform-java-to-classes.jar
-@echo "target Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
+@echo -e ${CL_GRN}"target Java:"${CL_RST}" $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
 $(call compile-java,$(TARGET_JAVAC),$(PRIVATE_BOOTCLASSPATH))
 endef
 
@@ -1686,7 +1641,7 @@ $(hide) if [ -e $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stamp ] ; then \
     fi
 $(hide) tr ' ' '\n' < $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list \
     | sort -u > $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq
-@echo "(Incremental) build source files:"
+@echo -e ${CL_YLW}"(Incremental) build source files:"${CL_RST}""
 @cat $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq
 $(hide) if [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq ] ; then \
     $(1) -encoding UTF-8 \
@@ -1699,7 +1654,13 @@ $(hide) if [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq ] ; the
     -extdirs "" -d $(PRIVATE_CLASS_INTERMEDIATES_DIR) \
     $(PRIVATE_JAVACFLAGS) \
     \@$(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq \
-    || ( exit 41 ) \
+    2>$(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr \
+    && ( [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr ] && \
+    echo -e ${CL_YLW}"`cat $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr`"${CL_RST} 1>&2; \
+    rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr ) \
+    || ( [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr ] && \
+    echo -e ${CL_RED}"`cat $(PRIVATE_CLASS_INTERMEDIATES_DIR)/stderr`"${CL_RST} 1>&2; \
+    rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/srderr; exit 41 ) \
 fi
 $(hide) rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list
 $(hide) rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq
@@ -1727,7 +1688,7 @@ $(hide) mv $(PRIVATE_CLASS_INTERMEDIATES_DIR)/newstamp $(PRIVATE_CLASS_INTERMEDI
 endef
 
 define transform-java-to-classes.jar
-@echo "target Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
+@echo -e ${CL_GRN}"target Java:"${CL_RST}" $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
 $(call compile-java,$(TARGET_JAVAC),$(PRIVATE_BOOTCLASSPATH))
 endef
 endif # ENABLE_INCREMENTALJAVAC
@@ -1742,7 +1703,7 @@ endef
 #      only core.jar and framework.jar need a heap this big.
 # Avoid the memory arguments on Windows, dx fails to load for some reason with them.
 define transform-classes.jar-to-dex
-@echo "target Dex: $(PRIVATE_MODULE)"
+@echo -e ${CL_GRN}"target Dex:"${CL_RST}" $(PRIVATE_MODULE)"
 @mkdir -p $(dir $@)
 $(hide) rm -f $(dir $@)classes*.dex
 $(hide) $(DX) \
@@ -1880,7 +1841,7 @@ endef
 # Note: we intentionally don't clean PRIVATE_CLASS_INTERMEDIATES_DIR
 # in transform-java-to-classes for the sake of vm-tests.
 define transform-host-java-to-package
-@echo "host Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
+@echo -e ${CL_YLW}"host Java:"${CL_RST}" $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
 $(call compile-java,$(HOST_JAVAC),$(PRIVATE_BOOTCLASSPATH))
 $(if $(PRIVATE_EXTRA_JAR_ARGS), $(call add-java-resources-to-package))
 endef
@@ -1894,7 +1855,7 @@ endef
 # $(2): destination header
 define copy-one-header
 $(2): $(1)
-	@echo "Header: $$@"
+	@echo -e ${CL_YLW}"Header:"${CL_RST}" $$@"
 	$$(copy-file-to-new-target-with-cp)
 endef
 
@@ -1903,7 +1864,7 @@ endef
 # $(2): destination file
 define copy-one-file
 $(2): $(1) | $(ACP)
-	@echo "Copy: $$@"
+	@echo -e ${CL_YLW}"Copy:"${CL_RST}" $$@"
 	$$(copy-file-to-target)
 endef
 
@@ -1924,7 +1885,7 @@ endef
 # $(2): destination file, must end with .xml.
 define copy-xml-file-checked
 $(2): $(1) | $(ACP)
-	@echo "Copy xml: $$@"
+	@echo -e ${CL_YLW}"Copy xml:"${CL_RST}" $$@"
 	$(hide) xmllint $$< >/dev/null  # Don't print the xml file to stdout.
 	$$(copy-file-to-target)
 endef
@@ -1982,19 +1943,19 @@ endef
 
 # Copy a prebuilt file to a target location.
 define transform-prebuilt-to-target
-@echo "$(if $(PRIVATE_IS_HOST_MODULE),host,target) Prebuilt: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_CYN}"$(if $(PRIVATE_IS_HOST_MODULE),host,target) Prebuilt:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(copy-file-to-target)
 endef
 
 # Copy a prebuilt file to a target location, using zipalign on it.
 define transform-prebuilt-to-target-with-zipalign
-@echo "$(if $(PRIVATE_IS_HOST_MODULE),host,target) Prebuilt APK: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_CYN}"$(if $(PRIVATE_IS_HOST_MODULE),host,target) Prebuilt APK:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(copy-file-to-target-with-zipalign)
 endef
 
 # Copy a prebuilt file to a target location, stripping "# comment" comments.
 define transform-prebuilt-to-target-strip-comments
-@echo "$(if $(PRIVATE_IS_HOST_MODULE),host,target) Prebuilt: $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_CYN}"$(if $(PRIVATE_IS_HOST_MODULE),host,target) Prebuilt:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(copy-file-to-target-strip-comments)
 endef
 
@@ -2028,8 +1989,9 @@ endif
 ###########################################################
 ## Commands to call Proguard
 ###########################################################
+@echo -e ${CL_CYN}"Copying:"${CL_RST}" $@"
+@echo -e ${CL_GRN}"Proguard:"${CL_RST}" $@"
 define transform-jar-to-proguard
-@echo Proguard: $@
 $(hide) $(PROGUARD) -injars $< -outjars $@ $(PRIVATE_PROGUARD_FLAGS) \
     $(addprefix -injars , $(PRIVATE_EXTRA_INPUT_JAR))
 endef
@@ -2039,7 +2001,7 @@ endef
 ###########################################################
 
 define transform-generated-source
-@echo "target Generated: $(PRIVATE_MODULE) <= $<"
+@echo -e ${CL_GRN}"target Generated:"${CL_RST}" $(PRIVATE_MODULE) <= $<"
 @mkdir -p $(dir $@)
 $(hide) $(PRIVATE_CUSTOM_TOOL)
 endef
@@ -2262,7 +2224,6 @@ include $(BUILD_SYSTEM)/distdir.mk
 
 # Include any vendor specific definitions.mk file
 -include $(TOPDIR)vendor/*/build/core/definitions.mk
--include $(TOPDIR)device/*/build/core/definitions.mk
 
 # broken:
 #	$(foreach file,$^,$(if $(findstring,.a,$(suffix $file)),-l$(file),$(file)))

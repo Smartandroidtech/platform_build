@@ -33,4 +33,5 @@ PRODUCT_COPY_FILES := \
 
 PRODUCT_PACKAGES := \
     audio.primary.goldfish \
-    power.goldfish
+    power.goldfish \
+    libffi

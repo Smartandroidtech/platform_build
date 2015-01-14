@@ -6,8 +6,8 @@ WITHOUT_TARGET_CLANG := true
 WITHOUT_HOST_CLANG := true
 endif
 
-LLVM_PREBUILTS_VERSION := 3.6
-LLVM_PREBUILTS_PATH := prebuilts/clang/$(BUILD_OS)-x86/host/$(LLVM_PREBUILTS_VERSION)/bin
+LLVM_PREBUILTS_PATH := prebuilts/clang/$(BUILD_OS)-x86/host/3.5/bin
+LLVM_PREBUILTS_HEADER_PATH := prebuilts/clang/$(BUILD_OS)-x86/host/3.5/lib/clang/3.5/include/
 
 CLANG := $(LLVM_PREBUILTS_PATH)/clang$(BUILD_EXECUTABLE_SUFFIX)
 CLANG_CXX := $(LLVM_PREBUILTS_PATH)/clang++$(BUILD_EXECUTABLE_SUFFIX)
@@ -32,7 +32,6 @@ endif
 # Clang flags for all host or target rules
 CLANG_CONFIG_EXTRA_ASFLAGS :=
 CLANG_CONFIG_EXTRA_CFLAGS :=
-CLANG_CONFIG_EXTRA_CONLYFLAGS := -std=gnu99
 CLANG_CONFIG_EXTRA_CPPFLAGS :=
 CLANG_CONFIG_EXTRA_LDFLAGS :=
 
@@ -43,32 +42,17 @@ CLANG_CONFIG_EXTRA_CFLAGS += \
 CLANG_CONFIG_EXTRA_CFLAGS += \
   -Werror=int-conversion
 
-# Workaround for ccache with clang.
-# See http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html.
-CLANG_CONFIG_EXTRA_CFLAGS += \
-  -Wno-unused-command-line-argument
-
-# Disable -Winconsistent-missing-override until we can clean up the existing
-# codebase for it.
-CLANG_CONFIG_EXTRA_CPPFLAGS += \
-  -Wno-inconsistent-missing-override
-
 CLANG_CONFIG_UNKNOWN_CFLAGS := \
-  -finline-functions \
-  -finline-limit=64 \
-  -fno-canonical-system-headers \
-  -fno-tree-sra \
   -funswitch-loops \
-  -Wmaybe-uninitialized \
-  -Wno-error=maybe-uninitialized \
-  -Wno-free-nonheap-object \
-  -Wno-literal-suffix \
-  -Wno-maybe-uninitialized \
-  -Wno-old-style-declaration \
+  -fno-tree-sra \
+  -finline-limit=64 \
   -Wno-psabi \
   -Wno-unused-but-set-variable \
   -Wno-unused-but-set-parameter \
-  -Wno-unused-local-typedefs
+  -Wmaybe-uninitialized \
+  -Wno-maybe-uninitialized \
+  -Wno-error=maybe-uninitialized \
+  -fno-canonical-system-headers
 
 # Clang flags for all host rules
 CLANG_CONFIG_HOST_EXTRA_ASFLAGS :=
@@ -102,19 +86,18 @@ clang_2nd_arch_prefix := $(TARGET_2ND_ARCH_VAR_PREFIX)
 include $(BUILD_SYSTEM)/clang/TARGET_$(TARGET_2ND_ARCH).mk
 endif
 
+
+# Clang compiler-specific libc headers
+CLANG_CONFIG_EXTRA_HOST_C_INCLUDES := $(LLVM_PREBUILTS_HEADER_PATH)
+CLANG_CONFIG_EXTRA_TARGET_C_INCLUDES := $(LLVM_PREBUILTS_HEADER_PATH) $(TARGET_OUT_HEADERS)/clang
+
 # Address sanitizer clang config
 ADDRESS_SANITIZER_RUNTIME_LIBRARY := libclang_rt.asan_$(TARGET_ARCH)_android
 ADDRESS_SANITIZER_CONFIG_EXTRA_CFLAGS := -fsanitize=address -fno-omit-frame-pointer
 ADDRESS_SANITIZER_CONFIG_EXTRA_LDFLAGS := -Wl,-u,__asan_preinit
-
 ADDRESS_SANITIZER_CONFIG_EXTRA_SHARED_LIBRARIES := libdl $(ADDRESS_SANITIZER_RUNTIME_LIBRARY)
 ADDRESS_SANITIZER_CONFIG_EXTRA_STATIC_LIBRARIES := libasan
 
 # This allows us to use the superset of functionality that compiler-rt
 # provides to Clang (for supporting features like -ftrapv).
 COMPILER_RT_CONFIG_EXTRA_STATIC_LIBRARIES := libcompiler_rt-extras
-
-ifeq ($(HOST_PREFER_32_BIT),true)
-# We don't have 32-bit prebuilt libLLVM/libclang, so force to build them from source.
-FORCE_BUILD_LLVM_COMPONENTS := true
-endif

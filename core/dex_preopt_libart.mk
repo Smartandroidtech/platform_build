@@ -16,20 +16,7 @@ DEX2OAT_DEPENDENCY += $(DEX2OAT)
 DEX2OATD_DEPENDENCY := $(DEX2OAT_DEPENDENCY)
 DEX2OATD_DEPENDENCY += $(DEX2OATD)
 
-# Use the first preloaded-classes file in PRODUCT_COPY_FILES.
-PRELOADED_CLASSES := $(call word-colon,1,$(firstword \
-    $(filter %system/etc/preloaded-classes,$(PRODUCT_COPY_FILES))))
-
-# Use the first compiled-classes file in PRODUCT_COPY_FILES.
-COMPILED_CLASSES := $(call word-colon,1,$(firstword \
-    $(filter %system/etc/compiled-classes,$(PRODUCT_COPY_FILES))))
-
-# Default to debug version to help find bugs.
-# Set USE_DEX2OAT_DEBUG to false for only building non-debug versions.
-ifneq ($(USE_DEX2OAT_DEBUG), false)
-DEX2OAT = $(DEX2OATD)
-DEX2OAT_DEPENDENCY = $(DEX2OATD_DEPENDENCY)
-endif
+PRELOADED_CLASSES := frameworks/base/preloaded-classes
 
 # start of image reserved address space
 LIBART_IMG_HOST_BASE_ADDRESS   := 0x60000000
@@ -44,7 +31,7 @@ DEX2OAT_IMAGE_XMX := $(call get-product-default-property,dalvik.vm.image-dex2oat
 DEX2OAT_XMS := $(call get-product-default-property,dalvik.vm.dex2oat-Xms)
 DEX2OAT_XMX := $(call get-product-default-property,dalvik.vm.dex2oat-Xmx)
 
-ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),mips mips64))
+ifeq ($(TARGET_ARCH),mips)
 # MIPS specific overrides.
 # For MIPS the ART image is loaded at a lower address. This causes issues
 # with the image overlapping with memory on the host cross-compiling and
@@ -95,7 +82,7 @@ endif
 define dex2oat-one-file
 $(hide) rm -f $(2)
 $(hide) mkdir -p $(dir $(2))
-$(hide) $(DEX2OAT) \
+$(hide) $(DEX2OATD) \
 	--runtime-arg -Xms$(DEX2OAT_XMS) --runtime-arg -Xmx$(DEX2OAT_XMX) \
 	--boot-image=$(PRIVATE_DEX_PREOPT_IMAGE_LOCATION) \
 	--dex-file=$(1) \
@@ -103,8 +90,6 @@ $(hide) $(DEX2OAT) \
 	--oat-file=$(2) \
 	--android-root=$(PRODUCT_OUT)/system \
 	--instruction-set=$($(PRIVATE_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_ARCH) \
-	--instruction-set-variant=$($(PRIVATE_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_CPU_VARIANT) \
 	--instruction-set-features=$($(PRIVATE_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES) \
-	--include-patch-information --runtime-arg -Xnorelocate --no-include-debug-symbols \
-	$(PRIVATE_DEX_PREOPT_FLAGS)
+	--include-patch-information --runtime-arg -Xnorelocate --no-include-debug-symbols
 endef

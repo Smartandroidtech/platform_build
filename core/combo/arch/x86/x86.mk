@@ -13,7 +13,11 @@ ARCH_X86_HAVE_MOVBE := false
 ARCH_X86_HAVE_POPCNT := false
 
 
-# Some intrinsic functions used by libcxx only exist for prescott or newer CPUs.
+# XXX: This flag is probably redundant, because it should be set by default
+# by our toolchain binaries. However, there have been reports that this may
+# not always work as intended, so keep it unless we have the time to check
+# everything properly.
+
 arch_variant_cflags := \
-    -march=prescott \
+    -march=i686 \
 
