@@ -453,7 +453,7 @@ endif
 ifeq ($(MAKECMDGOALS),clean)
 dont_bother := true
 endif
-feq ($(MAKECMDGOALS),clobber)
+ifeq ($(MAKECMDGOALS),clobber)
 dont_bother := true
 endif
 ifeq ($(MAKECMDGOALS),novo)
