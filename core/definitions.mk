@@ -1238,7 +1238,7 @@ define transform-host-o-to-static-lib
 @mkdir -p $(dir $@)
 @rm -f $@
 $(extract-and-include-host-whole-static-libs)
-@echo -e ${CL_YLW}""host StaticLib:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
+@echo -e ${CL_YLW}"host StaticLib:"${CL_RST}" $(PRIVATE_MODULE) ($@)"
 $(call split-long-arguments,$($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_AR) \
     $($(PRIVATE_2ND_ARCH_VAR_PREFIX)HOST_GLOBAL_ARFLAGS) \
     $(PRIVATE_ARFLAGS) $@,$(filter %.o, $^))
